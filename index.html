@@ -9,6 +9,13 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     .hidden { display: none; }
+    .progress-bar {
+      height: 6px;
+      background-color: rgb(250 204 21);
+      border-radius: 9999px;
+      width: 0%;
+      transition: width 0.3s ease-in-out;
+    }
   </style>
 </head>
 <body class="bg-black text-white min-h-screen p-6">
@@ -50,13 +57,16 @@
     ];
 
     const MODULES = [
-      { id: 1, title: 'Introducción a Cohetes', description: '¿Cómo funcionan los cohetes? Partes principales y el principio de acción y reacción.', coin_reward: 500 },
-      { id: 2, title: 'Órbitas y Gravedad', description: 'Conceptos de gravedad, microgravedad y los diferentes tipos de órbitas (LEO, GEO).', coin_reward: 750 },
-      { id: 3, title: '¿Qué es la Telemetría?', description: 'Conceptos básicos de la transmisión de datos por satélite y la importancia del ahorro de energía.', coin_reward: 1000 },
+      { id: 1, title: 'Introducción a Cohetes', description: '¿Cómo funcionan los cohetes? Partes principales y el principio de acción y reacción.', coin_reward: 500, video: 'https://www.youtube.com/watch?v=2b1KxXDFz0I' },
+      { id: 2, title: 'Órbitas y Gravedad', description: 'Conceptos de gravedad, microgravedad y los diferentes tipos de órbitas (LEO, GEO).', coin_reward: 750, video: 'https://www.youtube.com/watch?v=wN2kK9Odr2Y' },
+      { id: 3, title: '¿Qué es la Telemetría?', description: 'Conceptos básicos de la transmisión de datos por satélite y la importancia del ahorro de energía.', coin_reward: 1000, video: 'https://www.youtube.com/watch?v=QU5U0dQGztA' },
     ];
 
     let coins = 1500;
     let missionsCompleted = {};
+    let module1Downloaded = false;
+    let isDownloading = false;
+
     const consoleEl = document.getElementById('console');
     const modulesEl = document.getElementById('modules');
     const phaseName = document.getElementById('phaseName');
@@ -83,6 +93,28 @@
       phaseBox.className = `p-4 rounded-xl shadow-lg border-2 border-gray-700 flex items-center justify-between ${phase.color} text-white mb-6`;
     }
 
+    function startDownload(button) {
+      if (isDownloading) return;
+      isDownloading = true;
+      showMessage('🚀 Protocolo Store-and-Forward activado. Recibiendo Paquete de 25MB...');
+      button.disabled = true;
+
+      const progressBar = button.nextElementSibling.querySelector('.progress-bar');
+      let progress = 0;
+      const interval = setInterval(() => {
+        progress += Math.random() * 15;
+        if (progress >= 100) {
+          progress = 100;
+          clearInterval(interval);
+          module1Downloaded = true;
+          isDownloading = false;
+          showMessage('✅ ¡Transmisión exitosa! Módulo Desbloqueado para estudio OFFLINE.');
+          renderModules();
+        }
+        progressBar.style.width = progress + '%';
+      }, 400);
+    }
+
     function completeMission(id, reward) {
       if (missionsCompleted[id]) return;
       missionsCompleted[id] = true;
@@ -100,6 +132,26 @@
         const card = document.createElement('div');
         card.className = `p-5 rounded-xl shadow-lg border transition duration-300 transform hover:scale-[1.02] ${completed ? 'bg-purple-800/50 border-purple-500' : 'bg-gray-800 border-gray-700'}`;
 
+        let actionsHTML = '';
+
+        if (completed) {
+          actionsHTML = `<button class="w-full py-2 px-4 rounded-lg bg-green-600 text-white font-bold">✔ Misión Cumplida</button>`;
+        } else if (locked) {
+          actionsHTML = `<button class="w-full py-2 px-4 rounded-lg bg-gray-600 text-gray-300 font-bold">🔒 Bloqueado (Req. Despegue: 2000 Coins)</button>`;
+        } else if (module.id === 1 && !module1Downloaded) {
+          actionsHTML = `
+            <button onclick="startDownload(this)" class="w-full py-2 px-4 rounded-lg bg-amber-400 text-black font-bold hover:bg-amber-300">📡 Descargar Módulo (25MB)</button>
+            <div class="mt-3 bg-gray-700 rounded-full"><div class="progress-bar"></div></div>
+          `;
+        } else {
+          actionsHTML = `
+            <div class="flex space-x-3">
+              <a href="${module.video}" target="_blank" class="flex-1 py-2 px-4 rounded-lg bg-purple-700 text-white font-bold text-center hover:bg-purple-600">🎥 Ver Video</a>
+              <button onclick="completeMission(${module.id}, ${module.coin_reward})" class="flex-1 py-2 px-4 rounded-lg bg-amber-400 text-black font-bold hover:bg-amber-300">🎯 Completar Desafío</button>
+            </div>
+          `;
+        }
+
         card.innerHTML = `
           <h3 class="text-xl font-bold mb-2 text-white">${module.title}</h3>
           <p class="text-sm text-gray-400 mb-4">${module.description}</p>
@@ -107,13 +159,7 @@
             <span class="text-gray-400 flex items-center">⭐ Recompensa:</span>
             <span class="text-amber-400 font-extrabold">+${module.coin_reward} Delta Coins</span>
           </div>
-          ${
-            completed
-              ? `<button class="w-full py-2 px-4 rounded-lg bg-green-600 text-white font-bold">✔ Misión Cumplida</button>`
-              : locked
-              ? `<button class="w-full py-2 px-4 rounded-lg bg-gray-600 text-gray-300 font-bold">🔒 Bloqueado</button>`
-              : `<button onclick="completeMission(${module.id}, ${module.coin_reward})" class="w-full py-2 px-4 rounded-lg bg-amber-400 text-black font-bold hover:bg-amber-300">🎯 Completar Desafío</button>`
-          }
+          ${actionsHTML}
         `;
         modulesEl.appendChild(card);
       });
