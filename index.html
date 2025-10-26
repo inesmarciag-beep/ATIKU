@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Atiku - Simulador Aeroespacial</title>
+  <title>Atiku - Simulador Aeroespacial (Corregido)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
   <style>
@@ -13,7 +13,7 @@
       background-color: rgb(250 204 21);
       border-radius: 9999px;
       width: 0%;
-      transition: width 0.3s ease-in-out;
+      transition: width 0.25s linear;
     }
   </style>
 </head>
@@ -31,8 +31,8 @@
     <div class="flex items-center gap-3">
       <div class="text-xl">📡</div>
       <div>
-        <div class="text-sm font-semibold">Enviada</div>
-        <div class="text-sm opacity-90">Esperando retroalimentación de tu capitán...</div>
+        <div id="fbTitle" class="text-sm font-semibold">Enviada</div>
+        <div id="fbText" class="text-sm opacity-90">Esperando retroalimentación de tu capitán...</div>
       </div>
     </div>
     <button id="dismissFeedback" class="py-1 px-3 rounded-md bg-gray-800 text-gray-200 hover:bg-gray-700">Cerrar</button>
@@ -60,75 +60,193 @@
 
   <script>
     // ---------------- CONFIGURACIÓN ----------------
+    const PHASES = [
+      { name: 'Fase de Ensamblaje', required_coins: 0, color: 'bg-gray-600' },
+      { name: 'Fase de Despegue', required_coins: 2000, color: 'bg-purple-600' },
+      { name: 'Fase Orbital', required_coins: 5000, color: 'bg-amber-400' },
+      { name: 'Fase Interplanetaria', required_coins: 10000, color: 'bg-pink-500' },
+    ];
+
     const MODULES = [
       { id: 1, title: "Introducción a Cohetes", description: "Partes principales y principio de acción-reacción.", reward: 500, video: "https://www.youtube.com/watch?v=2b1KxXDFz0I" },
       { id: 2, title: "Órbitas y Gravedad", description: "Tipos de órbitas, gravedad y microgravedad.", reward: 750, video: "https://www.youtube.com/watch?v=wN2kK9Odr2Y" },
       { id: 3, title: "Telemetría", description: "Cómo se transmiten los datos satelitales.", reward: 1000, video: "https://www.youtube.com/watch?v=QU5U0dQGztA" }
     ];
 
+    // ---------------- ESTADO ----------------
     let coins = 1500;
-    let completed = {};
+    let completed = {};              // { moduleId: true }
+    let module1Downloaded = false;
+    let isDownloading = false;
 
+    // ---------------- ELEMENTOS DOM ----------------
     const modulesEl = document.getElementById("modules");
     const consoleEl = document.getElementById("console");
-    const coinCount = document.getElementById("coinCount");
+    const coinCountEl = document.getElementById("coinCount");
+    const phaseNameEl = document.getElementById("phaseName");
+    const phaseBox = document.getElementById("phase");
     const feedbackBanner = document.getElementById("feedbackBanner");
     const dismissFeedback = document.getElementById("dismissFeedback");
+    const fbTitle = document.getElementById("fbTitle");
+    const fbText = document.getElementById("fbText");
 
-    dismissFeedback.addEventListener("click", () => feedbackBanner.classList.add("hidden"));
+    // ---------------- HELPERS ----------------
+    function getCurrentPhase(coins) {
+      for (let i = PHASES.length - 1; i >= 0; i--) {
+        if (coins >= PHASES[i].required_coins) return PHASES[i];
+      }
+      return PHASES[0];
+    }
 
-    // ---------------- FUNCIONES ----------------
     function showConsole(msg, time = 3000) {
       consoleEl.textContent = msg;
       consoleEl.classList.remove("hidden");
-      clearTimeout(consoleEl.timeout);
-      consoleEl.timeout = setTimeout(() => consoleEl.classList.add("hidden"), time);
+      clearTimeout(consoleEl._timeout);
+      if (time > 0) consoleEl._timeout = setTimeout(() => consoleEl.classList.add("hidden"), time);
     }
 
-    function updateCoins(amount) {
-      coins += amount;
-      coinCount.textContent = coins;
+    function updatePhaseUI() {
+      const phase = getCurrentPhase(coins);
+      phaseNameEl.textContent = phase.name;
+      coinCountEl.textContent = coins;
+      phaseBox.className = `p-4 rounded-xl shadow-lg border-2 border-gray-700 flex items-center justify-between ${phase.color} text-white mb-6`;
     }
 
-    function showFeedback() {
+    function showFeedbackBanner(title = "Enviada", text = "Esperando retroalimentación de tu capitán...") {
+      fbTitle.textContent = title;
+      fbText.textContent = text;
       feedbackBanner.classList.remove("hidden");
     }
 
-    function completeMission(id, reward) {
-      if (completed[id]) return;
-      completed[id] = true;
-      showConsole("🎯 Misión completada. Enviada, esperando retroalimentación de tu capitán...");
-      updateCoins(reward);
-      showFeedback();
+    // ---------------- FUNCIONES PRINCIPALES ----------------
+    function startDownloadSimulation(button, progressBar) {
+      if (isDownloading) return;
+      isDownloading = true;
+      button.disabled = true;
+      showConsole("🚀 Protocolo Store-and-Forward activado. Recibiendo paquete (25 MB)...", 2500);
+
+      let progress = 0;
+      const interval = setInterval(() => {
+        // ráfagas aleatorias
+        progress += Math.random() * 18;
+        if (progress >= 100) progress = 100;
+        progressBar.style.width = progress + "%";
+
+        if (progress >= 100) {
+          clearInterval(interval);
+          isDownloading = false;
+          module1Downloaded = true;
+          showConsole("✅ ¡Transmisión exitosa! Módulo 1 desbloqueado.", 3000);
+          renderModules();
+        }
+      }, 300);
+    }
+
+    function completeMission(moduleId, reward) {
+      if (completed[moduleId]) return;
+      completed[moduleId] = true;
+      coins += reward;
+      showConsole(`✅ ¡Desafío superado! Ganas +${reward} Delta Coins.`, 2200);
+      updatePhaseUI();
+      // Simulamos envío de telemetría y luego mostramos banner de retroalimentación
+      setTimeout(() => showConsole("📡 Enviando telemetría...", 1400), 600);
+      setTimeout(() => showFeedbackBanner(), 1500);
       renderModules();
     }
 
+    // ---------------- RENDER ----------------
     function renderModules() {
-      modulesEl.innerHTML = "";
-      MODULES.forEach(m => {
-        const done = completed[m.id];
-        const card = document.createElement("div");
-        card.className = `p-5 rounded-xl border shadow-lg transition ${done ? "bg-green-800/40 border-green-500" : "bg-gray-800 border-gray-700"}`;
+      modulesEl.innerHTML = ""; // limpiar
+      MODULES.forEach(mod => {
+        const isLocked = mod.id > 1 && coins < PHASES[1].required_coins;
+        const isDone = !!completed[mod.id];
 
-        card.innerHTML = `
-          <h3 class="text-xl font-bold text-white mb-2">${m.title}</h3>
-          <p class="text-sm text-gray-400 mb-4">${m.description}</p>
-          <div class="text-sm mb-4 text-gray-300">⭐ Recompensa: <span class="text-amber-400 font-bold">+${m.reward}</span> Delta Coins</div>
-          ${
-            done
-              ? `<button class="w-full py-2 px-4 rounded-lg bg-green-600 text-white font-bold">✔ Misión Cumplida</button>`
-              : `
-              <div class="flex gap-3">
-                <a href="${m.video}" target="_blank" class="flex-1 py-2 px-4 rounded-lg bg-purple-700 text-white font-bold text-center hover:bg-purple-600">🎥 Ver Tutorial</a>
-                <button onclick="completeMission(${m.id}, ${m.reward})" class="flex-1 py-2 px-4 rounded-lg bg-amber-400 text-black font-bold hover:bg-amber-300">🚀 Completar</button>
-              </div>`
-          }
-        `;
+        const card = document.createElement("div");
+        card.className = `p-5 rounded-xl shadow-lg border transition duration-300 transform hover:scale-[1.02] ${isDone ? 'bg-purple-800/40 border-purple-500' : 'bg-gray-800 border-gray-700'}`;
+
+        // Título y descripción
+        const title = document.createElement("h3");
+        title.className = "text-xl font-bold mb-2 text-white";
+        title.textContent = mod.title;
+        const desc = document.createElement("p");
+        desc.className = "text-sm text-gray-400 mb-4";
+        desc.textContent = mod.description;
+
+        // Recompensa
+        const rewardDiv = document.createElement("div");
+        rewardDiv.className = "flex items-center justify-between text-sm font-semibold mb-4 border-t border-b border-gray-700 py-2";
+        rewardDiv.innerHTML = `<span class="text-gray-400">⭐ Recompensa:</span><span class="text-amber-400 font-extrabold">+${mod.reward} Delta Coins</span>`;
+
+        // Contenedor de acciones
+        const actions = document.createElement("div");
+
+        if (isDone) {
+          const doneBtn = document.createElement("button");
+          doneBtn.className = "w-full py-2 px-4 rounded-lg bg-green-600 text-white font-bold";
+          doneBtn.textContent = "✔ Misión Cumplida";
+          actions.appendChild(doneBtn);
+        } else if (isLocked) {
+          const lockBtn = document.createElement("button");
+          lockBtn.className = "w-full py-2 px-4 rounded-lg bg-gray-600 text-gray-300 font-bold";
+          lockBtn.textContent = `🔒 Bloqueado (Req. ${PHASES[1].required_coins} Coins)`;
+          actions.appendChild(lockBtn);
+        } else if (mod.id === 1 && !module1Downloaded) {
+          // Descarga simulada (Módulo 1)
+          const dlBtn = document.createElement("button");
+          dlBtn.className = "w-full py-2 px-4 rounded-lg bg-amber-400 text-black font-bold mb-3 hover:bg-amber-300";
+          dlBtn.textContent = "📡 Descargar Módulo (25 MB)";
+          const progressWrap = document.createElement("div");
+          progressWrap.className = "mt-1 bg-gray-700 rounded-full";
+          const progressBar = document.createElement("div");
+          progressBar.className = "progress-bar";
+          progressWrap.appendChild(progressBar);
+
+          // Evento
+          dlBtn.addEventListener("click", () => startDownloadSimulation(dlBtn, progressBar));
+          actions.appendChild(dlBtn);
+          actions.appendChild(progressWrap);
+        } else {
+          // Video + Completar
+          const flex = document.createElement("div");
+          flex.className = "flex gap-3";
+
+          const videoA = document.createElement("a");
+          videoA.href = mod.video;
+          videoA.target = "_blank";
+          videoA.rel = "noopener";
+          videoA.className = "flex-1 py-2 px-4 rounded-lg bg-purple-700 text-white font-bold text-center hover:bg-purple-600";
+          videoA.textContent = "🎥 Ver Tutorial";
+
+          const completeBtn = document.createElement("button");
+          completeBtn.className = "flex-1 py-2 px-4 rounded-lg bg-amber-400 text-black font-bold hover:bg-amber-300";
+          completeBtn.textContent = "🎯 Completar Desafío";
+          completeBtn.addEventListener("click", () => completeMission(mod.id, mod.reward));
+
+          flex.appendChild(videoA);
+          flex.appendChild(completeBtn);
+          actions.appendChild(flex);
+        }
+
+        // Armamos la tarjeta
+        card.appendChild(title);
+        card.appendChild(desc);
+        card.appendChild(rewardDiv);
+        card.appendChild(actions);
         modulesEl.appendChild(card);
       });
     }
 
+    // ---------------- INICIALIZACIÓN ----------------
+    dismissFeedback.addEventListener("click", () => feedbackBanner.classList.add("hidden"));
+    updatePhaseUI();
     renderModules();
+
+    // Hacer debug fácil (abrir consola del navegador si necesitas)
+    window._ATIKU = {
+      state: () => ({ coins, completed, module1Downloaded }),
+      completeMission,
+      startDownloadSimulation
+    };
   </script>
 </body>
 </html>
